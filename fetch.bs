@@ -674,6 +674,11 @@ otherwise it is unset.
 <dfn export for=request id=concept-request-header-list>header list</dfn> (a
 <a for=/>header list</a>). Unless stated otherwise it is empty.
 
+<p>A <a for=/>request</a> has an associated {{AbortSignal}}. Unless stated otherwise, it is null.
+
+Issue: Using an interface above is wrong isn't it? Does that mean we need to create a signal
+concept in the dom spec?
+
 <p>A <a for=/>request</a> has an associated
 <dfn id=unsafe-request-flag export for=request>unsafe-request flag</dfn>. Unless stated otherwise it
 is unset.
@@ -1179,6 +1184,9 @@ or "<code>worker</code>".
  <li><p>If <var>body</var> is null, then <a>queue a fetch task</a> on <var>request</var> to
  <a>process request end-of-body</a> for <var>request</var> and abort these steps.
 
+  Issue: Abort point: Need to be able to abort here, and at any point during these substeps.
+  Aborting should cancel the readable stream.
+
  <li><p>Let <var>read</var> be the result of <a lt="read a chunk" for=ReadableStream>reading a
  chunk</a> from <var>body</var>'s <a for=body>stream</a>.
 
@@ -1187,6 +1195,8 @@ or "<code>worker</code>".
 
   <ol>
    <li><p>Wait for <var>read</var> to be fulfilled or rejected.
+
+   <li><p>Run <var>abortCheck</var>.
 
    <li>
     <p>If <var>read</var> is fulfilled with an object whose <code>done</code> property is false
@@ -1203,6 +1213,8 @@ or "<code>worker</code>".
       for <var>request</var>.
 
       <p class="note no-backref">This step blocks until <var>bs</var> is fully transmitted.
+
+     <li><p>Run <var>abortCheck</var>.
 
      <li><p>Set <var>read</var> to the result of <a lt="read a chunk" for=ReadableStream>reading a
      chunk</a> from <var>body</var>'s <a for=body>stream</a>.
@@ -1494,7 +1506,11 @@ for each associated <a for="fetch group">fetch record</a> whose
   <p>Let <var>connection</var> be the result of establishing an HTTP connection to
   <var>origin</var>. [[!HTTP]] [[!HTTP-SEMANTICS]] [[!HTTP-COND]] [[!HTTP-CACHING]] [[!HTTP-AUTH]] [[!TLS]]
 
+  Issue: Abort point: The previous step should be abortable.
+
   <p>If <var>credentials</var> is false, do <em>not</em> send a TLS client certificate.
+
+  Issue: Abort point: The previous step should be abortable.
 
   <p>If establishing a connection does not succeed (e.g., a DNS, TCP, or TLS error), return failure.
 
@@ -2825,6 +2841,10 @@ steps:
    <li><p>Set <var>response</var>'s <a for=response>body</a> to
    the result of performing the <a spec=fileapi>read operation</a> on
    <var>blob</var>.
+
+   Issue: Abort point: <a spec=fileapi>read operation</a> needs the ability to abort mid-read. We
+   either need to change that spec, or hand-wave through it.
+
    <!-- This takes care of setting length, transmitted, and error flag as well -->
 
    <li><p>Return <var>response</var>.
@@ -2898,6 +2918,9 @@ optional <i>CORS flag</i> and <i>CORS-preflight flag</i>, run these steps:
     <var>response</var> to the result of invoking <a for=/>handle fetch</a> for <var>request</var>.
     [[!HTML]] [[!SW]]
 
+    Issue: Abort point: <a for=/>handle fetch</a> needs to handle aborting, probably. At the very
+    least we need to make sure the signal is passed in.
+
    <li>
     <p>If <var>response</var> is null, <var>request</var> is a <a>subresource request</a>, and
     <var>request</var>'s <a for=request>origin</a> is not
@@ -2906,6 +2929,8 @@ optional <i>CORS flag</i> and <i>CORS-preflight flag</i>, run these steps:
     <a for=url>origin</a>, then set <var>response</var>
     to the result of invoking <a for=/>handle foreign fetch</a> for
     <var>request</var>. [[!SW]]
+
+    Issue: Abort point: <a for=/>handle foreign fetch</a> needs to handle aborting, probably.
 
    <li>
     <p>If <var>response</var> is not null, then run these substeps:
@@ -3014,6 +3039,9 @@ optional <i>CORS flag</i> and <i>CORS-preflight flag</i>, run these steps:
 
   <ol>
    <li>
+
+     Issue: Abort point: Allow abort before the next step, so avoid network activity.
+
     <p>If <var>actualResponse</var>'s <a for=response>status</a> is not
     <code>303</code>, <var>request</var>'s <a for=request>body</a> is not
     <a for=body>done</a>, and the
@@ -3411,6 +3439,9 @@ Range Requests</cite>. [[HTTP-RANGE]] However, this is not widely supported by b
 
   <ol>
    <li>
+
+    Issue: Abort step: The following step should be abortable.
+
     <p>Set <var>storedResponse</var> to the result of selecting a response from the HTTP cache,
     possibly needing validation, as per the
     "<a href=https://tools.ietf.org/html/rfc7234#section-4>Constructing Responses from Caches</a>"
@@ -3499,6 +3530,9 @@ Range Requests</cite>. [[HTTP-RANGE]] However, this is not widely supported by b
       "<a href=https://tools.ietf.org/html/rfc7234#section-3>Storing Responses in Caches</a>"
       chapter of <cite>HTTP Caching</cite>. [[!HTTP-CACHING]]
 
+      Issue: Abort point: The previous step should be abortable, although the stream cancelling may
+      already take care of it.
+
       <p class=note>If <var>forwardResponse</var> is a <a>network error</a>, this effectively caches
       the network error, which is sometimes known as "negative caching".
     </ol>
@@ -3563,6 +3597,8 @@ Range Requests</cite>. [[HTTP-RANGE]] However, this is not widely supported by b
    <li class=XXX><p>Needs testing: multiple `<code>Proxy-Authenticate</code>` headers, missing,
    parsing issues.
 
+    Issue: Abort point: Before the next step to avoid showing UI if not needed.
+
    <li>
     <p>Prompt the end user as appropriate in <var>request</var>'s
     <a for=request>window</a> and store the result as a
@@ -3577,6 +3613,8 @@ Range Requests</cite>. [[HTTP-RANGE]] However, this is not widely supported by b
 
  <li><p>If <i>authentication-fetch flag</i> is set, then create an <a>authentication entry</a>
  for <var>request</var> and the given realm.
+
+  Issue: The response should be given the request's abort signal.
 
  <li><p>Return <var>response</var>. <span class="note no-backref">Typically
  <var>response</var>'s <a for=response>body</a>'s
@@ -3621,6 +3659,8 @@ Range Requests</cite>. [[HTTP-RANGE]] However, this is not widely supported by b
   <p>Let <var>response</var> be the result of making an HTTP request over <var>connection</var>
   using <var>request</var> with the following caveats:
 
+  Issue: Abort point: The previous step should be abortable.
+
   <ul>
    <li><p>Follow the relevant requirements from HTTP. [[!HTTP]] [[!HTTP-SEMANTICS]] [[!HTTP-COND]] [[!HTTP-CACHING]] [[!HTTP-AUTH]]
 
@@ -3630,6 +3670,8 @@ Range Requests</cite>. [[HTTP-RANGE]] However, this is not widely supported by b
    <a for=/>fetch</a> is being
    <a for=fetch>terminated</a>, then set <var>response</var>'s
    <a for=response>termination reason</a> to <var>reason</var>.
+
+    Issue: Abort point: The previous step should be abortable.
 
    <li>
     <p>Any <a for=/>responses</a> whose
@@ -3755,6 +3797,9 @@ Range Requests</cite>. [[HTTP-RANGE]] However, this is not widely supported by b
 
  <li>
   <p>Run these substeps <a>in parallel</a>:
+
+  Issue: Abort point: The following steps should be abortable, canceling the stream, and moving to
+  the "terminated" steps below.
 
   <ol>
    <li>
@@ -4610,6 +4655,8 @@ runs the associated steps:
 <dfn id=concept-body-consume-body for=Body>consume body</dfn> algorithm, given a <var>type</var>,
 runs these steps:
 
+Issue: Abort point: The following steps should be abortable, canceling the stream.
+
 <ol>
  <li><p>If this object is <a for=Body>disturbed</a>
  or <a for=Body>locked</a>, return a new promise rejected with a
@@ -4724,8 +4771,8 @@ omitted from <a enum><code>RequestMode</code></a> as it cannot be used nor obser
 is itself associated with <a for=Request>request</a>'s
 <a for=request>header list</a>.
 
-<p>A {{Request}} object has an associated <dfn for=Request>signal</dfn> (null or an {{AbortSignal}}
-object), which is initially null.
+<p>A {{Request}} object has an associated <dfn for=Request>signal</dfn>, an {{AbortSignal}} object,
+which is itself associated with <a for=Request>request</a>'s <dfn for=request>signal</dfn>.
 
 <p>A {{Request}} object's <a for=Body>body</a> is its
 <a for=Request>request</a>'s
@@ -4956,7 +5003,12 @@ constructor must run these steps:
  a new associated {{Headers}} object whose <a for=Headers>guard</a>
  is "<code>request</code>".
 
- <li><p>Set <var>r</var>'s <a for=Request>signal</a> to <var>signal</var>.
+ <li>If <var>signal</var> is not null, <a for=AbortSignal lt=add>add the following abort steps</a>
+ to <var>signal</var>:
+  <ol>
+   <li>Signal abort on <var>r</var>'s <a for=Request>signal</a>.
+  </ol>
+ </li>
 
  <li><p>Let <var>headers</var> be a copy of <var>r</var>'s {{Headers}} object and its
  associated <a for=Headers>header list</a>.
@@ -5376,22 +5428,14 @@ method, must run these steps:
  {{Headers}} object whose <a for=Headers>guard</a> is
  "<code>immutable</code>".
 
- <li>If <var>requestObject</var>'s <a for=Request>signal</a> is not null and its
- <a for=AbortSignal>aborted flag</a> is set, reject <var>p</var> with an
- "<code><a exception>AbortError</a></code>" {{DOMException}}, and return <var>p</var>.
-
- <li><p>Otherwise, if <var>requestObject</var>'s <a for=Request>signal</a> is not null,
- <a lt=add for=AbortSignal>add the following abort steps</a> to <var>requestObject</var>'s
- <a for=Request>signal</a>:
-
- <ol>
-  <li><p><a lt=terminated for=fetch>Terminate</a> <var>ongoingFetch</var> with reason <i>fatal</i>.
- </ol>
+ <li>If <var>requestObject</var>'s <a for=Request>signal</a>'s <a for=AbortSignal>aborted flag</a>
+ is set, reject <var>p</var> with an "<code><a exception>AbortError</a></code>" {{DOMException}},
+ and return <var>p</var>.
 
  <li>
   <p>Run the following <a>in parallel</a>:
 
-  <p><a for=/>Fetch</a> <var>request</var> and let <var>ongoingFetch</var> be the ongoing fetch.
+  <p><a for=/>Fetch</a> <var>request</var>.
 
   <p>To <a>process response</a> for <var>response</var>, run these substeps:
 
